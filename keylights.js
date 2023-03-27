@@ -5,28 +5,34 @@ commander
   .version('0.0.1', '-v, --version')
   .usage('[OPTIONS]...')
   .option('-o, --on <value>', 'Turn lights on/off.')
+  .option('-u, --up <value>', 'Turn lights up by provided value.')
+  .option('-d, --down <value>', 'Turn lights down by provided value.')
   .parse(process.argv);
 
 const opts = commander.opts();
 
-function setLightStatus(host, on) {
+const data = { 'lights':[
+    { 
+        'brightness':10,
+        'temperature':250,
+        'on':1
+    }],
+    'numberOfLights':1
+};
+
+function setLightStatus(host, on, brightness) {
     on = (typeof opts.on === 'undefined') ? !on : Number(opts.on);
-    
-    const data = { 'lights':[
-        { 
-            'brightness':10,
-            'temperature':250,
-            'on':on 
-        }],
-        'numberOfLights':1
-    };
+    brightness = (typeof opts.up === 'undefined') ? brightness : brightness + Number(opts.up);
+    brightness = (typeof opts.down === 'undefined') ? brightness : brightness - Number(opts.down);
+
+    data.lights[0].on = on;
+    data.lights[0].brightness = brightness;
+
     const body = JSON.stringify(data);
 
     let req = http.request({
-        host:host, 
-        port:9123, 
+        host:host, port:9123, method:'PUT',
         path:'/elgato/lights', 
-        method:'PUT',
         headers: {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(body)
@@ -49,7 +55,10 @@ function toggleLight(res) {
 
     res.on("end", () => {
         try {
-            setLightStatus(res.req.host, JSON.parse(data).lights[0].on);
+            const json = JSON.parse(data);
+            setLightStatus(res.req.host, 
+                json.lights[0].on,
+                Number(json.lights[0].brightness));
         } catch (error) {
             console.error(error.message);
         };
